@@ -1,0 +1,175 @@
+# OpenPAVE PandaDoc Skill
+# Query and manage PandaDoc documents securely using API key authentication
+
+name: pandadoc
+version: 1.0.0
+description: Query and manage PandaDoc documents, templates, and e-signatures
+
+author:
+  name: cnrai
+  url: https://github.com/cnrai
+
+license: MIT
+homepage: https://github.com/cnrai/openpave-pandadoc
+repository: cnrai/openpave-pandadoc
+
+# Execution pattern
+pattern: sandbox
+entrypoint: index.js
+
+# Available commands
+commands:
+  - name: list
+    description: List documents with optional filters
+    options:
+      - -q, --query <query>
+      - -s, --status <status>
+      - -t, --tag <tag>
+      - --template <templateId>
+      - --folder <folderUuid>
+      - -n, --count <number>
+      - -p, --page <number>
+      - --order <field>
+      - --deleted
+      - --created-from <date>
+      - --created-to <date>
+      - --modified-from <date>
+      - --modified-to <date>
+      - --completed-from <date>
+      - --completed-to <date>
+      - --json
+      - --summary
+
+  - name: get
+    description: Get document status by ID
+    args:
+      - <documentId>
+    options:
+      - --json
+      - --summary
+
+  - name: details
+    description: Get detailed document info (recipients, fields, totals)
+    args:
+      - <documentId>
+    options:
+      - --json
+      - --summary
+
+  - name: download
+    description: Download document as PDF
+    args:
+      - <documentId>
+    options:
+      - -o, --output <file>
+      - --watermark
+      - --protected
+
+  - name: templates
+    description: List templates
+    options:
+      - -q, --query <query>
+      - -t, --tag <tag>
+      - -n, --count <number>
+      - -p, --page <number>
+      - --deleted
+      - --json
+      - --summary
+
+  - name: folders
+    description: List document folders
+    options:
+      - --parent <uuid>
+      - -n, --count <number>
+      - -p, --page <number>
+      - --json
+      - --summary
+
+  - name: me
+    description: Get current user/member info
+    options:
+      - --json
+      - --summary
+
+  - name: audit
+    description: Get document audit trail
+    args:
+      - <documentId>
+    options:
+      - --json
+      - --summary
+
+  - name: fields
+    description: List document fields/tokens
+    args:
+      - <documentId>
+    options:
+      - --json
+      - --summary
+
+  - name: send
+    description: Send document for signing
+    args:
+      - <documentId>
+    options:
+      - -m, --message <text>
+      - --subject <subject>
+      - --silent
+      - --json
+      - --summary
+
+# Token configuration for secure sandbox access
+tokens:
+  pandadoc:
+    type: api_key
+    description: PandaDoc API key for authentication
+    domains:
+      - api.pandadoc.com
+    env:
+      required:
+        - PANDADOC_API_KEY
+    config:
+      env: PANDADOC_API_KEY
+      type: api_key
+      domains:
+        - api.pandadoc.com
+      placement:
+        type: header
+        name: Authorization
+        format: "API-Key {token}"
+
+# Sandbox permissions
+permissions:
+  fs.read:
+    - tmp/*
+  fs.write:
+    - tmp/*
+  network:
+    - api.pandadoc.com
+  modules:
+    - fs
+    - path
+  system: []
+
+# Platform compatibility
+platforms:
+  - darwin
+  - linux
+  - win32
+
+engines:
+  node: ">=16.0.0"
+
+# Metadata
+keywords:
+  - pandadoc
+  - documents
+  - esign
+  - e-signature
+  - contracts
+  - proposals
+  - templates
+  - pdf
+
+category: documents
+icon: "\U0001F4DD"
