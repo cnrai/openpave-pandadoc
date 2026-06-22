@@ -130,10 +130,98 @@ const STATUS_MAP = {
 };
 
 // PandaDoc Client Class - Uses secure token system
+
+// ── PAVE Auth Proxy (replaces deprecated authenticatedFetch global) ──
+// Direct HTTP calls to the PAVE auth proxy at /proxy/:tokenName/*path
+var PAVE_PROXY_BASE = process.env.PAVE_PROXY_URL || '';
+
+function _shellQuote(s) {
+  return "'" + String(s).replace(/'/g, "'\\''") + "'";
+}
+
+function proxyHasToken(tokenName) {
+  if (!PAVE_PROXY_BASE) return false;
+  try {
+    var url = PAVE_PROXY_BASE.replace(/\/$/, '') + '/_tokens/' + encodeURIComponent(tokenName);
+    var out = require('child_process').execSync(
+      'curl -sS --max-time 5 ' + _shellQuote(url),
+      { encoding: 'utf8', timeout: 8000, stdio: ['pipe', 'pipe', 'pipe'] }
+    );
+    var r = JSON.parse(out);
+    return r.has === true;
+  } catch (e) {
+    return false;
+  }
+}
+
+function proxyFetch(tokenName, url, options) {
+  options = options || {};
+  if (!PAVE_PROXY_BASE) {
+    throw new Error('PAVE_PROXY_URL not set - cannot reach auth proxy');
+  }
+
+  var parsed = new URL(url);
+  var proxyUrl = PAVE_PROXY_BASE.replace(/\/$/, '') + '/' + encodeURIComponent(tokenName) + parsed.pathname + parsed.search;
+  proxyUrl += (proxyUrl.indexOf('?') !== -1 ? '&' : '?') + '_mode=json';
+  if (options.saveTo) {
+    proxyUrl += '&_saveTo=' + encodeURIComponent(options.saveTo);
+  }
+
+  var method = options.method || 'GET';
+  var timeout = options.timeout || 30000;
+  var cmd = 'curl -sS -X ' + method + ' --max-time ' + Math.ceil(timeout / 1000);
+
+  var headers = Object.assign({}, options.headers || {});
+  if (options.body && !headers['Content-Type']) {
+    headers['Content-Type'] = 'application/json';
+  }
+  for (var k in headers) {
+    cmd += ' -H ' + _shellQuote(k + ': ' + headers[k]);
+  }
+
+  if (options.body) {
+    var bodyStr = typeof options.body === 'string' ? options.body : JSON.stringify(options.body);
+    cmd += ' -d ' + _shellQuote(bodyStr);
+  }
+
+  cmd += ' ' + _shellQuote(proxyUrl);
+
+  var out;
+  try {
+    out = require('child_process').execSync(cmd, {
+      encoding: 'utf8', timeout: timeout + 5000, maxBuffer: 10 * 1024 * 1024,
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+  } catch (err) {
+    var stdout = err.stdout ? err.stdout.toString() : '';
+    var stderr = err.stderr ? err.stderr.toString() : '';
+    if (stdout) { out = stdout; } else {
+      throw new Error('Proxy request failed: ' + (stderr.trim() || err.message));
+    }
+  }
+
+  var resp;
+  try { resp = JSON.parse(out); } catch (e) {
+    return { ok: true, status: 200, headers: { get: function() { return null; } },
+      text: function() { return out; }, json: function() { return JSON.parse(out || '{}'); } };
+  }
+  if (resp.error) throw new Error(resp.error);
+  if (resp.savedTo) {
+    return { ok: resp.ok || false, status: resp.status || 200, savedTo: resp.savedTo,
+      headers: { get: function() { return null; } },
+      text: function() { return ''; }, json: function() { return {}; } };
+  }
+  return { ok: resp.ok || false, status: resp.status || 200,
+    headers: { get: function(name) { var hs = resp.headers || {}, ln = name.toLowerCase();
+      for (var key in hs) { if (key.toLowerCase() === ln) return Array.isArray(hs[key]) ? hs[key][0] : hs[key]; }
+      return null; } },
+    text: function() { return resp.body || ''; }, json: function() { return JSON.parse(resp.body || '{}'); } };
+}
+
 class PandaDocClient {
   constructor() {
     // Check if pandadoc token is available via secure token system
-    if (typeof hasToken === 'function' && !hasToken('pandadoc')) {
+    if (!proxyHasToken('pandadoc')) {
       console.error('PandaDoc token not configured.');
       console.error('');
       console.error('Add to ~/.pave/permissions.yaml under tokens section:');
@@ -162,7 +250,7 @@ class PandaDocClient {
     const url = `${this.baseUrl}${endpoint}`;
     
     // Use authenticatedFetch - token injection handled by sandbox
-    const response = authenticatedFetch('pandadoc', url, {
+    const response = proxyFetch('pandadoc', url, {
       ...options,
       headers: {
         'Content-Type': 'application/json',
@@ -191,7 +279,7 @@ class PandaDocClient {
   requestV2(endpoint, options = {}) {
     const url = `https://api.pandadoc.com/public/v2${endpoint}`;
     
-    const response = authenticatedFetch('pandadoc', url, {
+    const response = proxyFetch('pandadoc', url, {
       ...options,
       headers: {
         'Content-Type': 'application/json',
@@ -265,7 +353,7 @@ class PandaDocClient {
     const queryString = encodeFormData(queryParams);
     const url = `${this.baseUrl}/documents/${documentId}/download${queryString ? `?${queryString}` : ''}`;
     
-    const response = authenticatedFetch('pandadoc', url, {
+    const response = proxyFetch('pandadoc', url, {
       timeout: 60000 // Longer timeout for downloads
     });
     
@@ -286,7 +374,7 @@ class PandaDocClient {
   downloadProtectedDocument(documentId) {
     const url = `${this.baseUrl}/documents/${documentId}/download-protected`;
     
-    const response = authenticatedFetch('pandadoc', url, {
+    const response = proxyFetch('pandadoc', url, {
       timeout: 60000
     });
     
@@ -561,7 +649,7 @@ function main() {
             console.log(formatDocument(doc));
           }
         } else {
-          console.log(JSON.stringify(result, null, 2));
+          console.log(JSON.stringify(result));
         }
         break;
       }
@@ -579,7 +667,7 @@ function main() {
         if (parsed.options.summary) {
           console.log(formatDocument(result));
         } else {
-          console.log(JSON.stringify(result, null, 2));
+          console.log(JSON.stringify(result));
         }
         break;
       }
@@ -597,7 +685,7 @@ function main() {
         if (parsed.options.summary) {
           console.log(formatDocumentDetails(result));
         } else {
-          console.log(JSON.stringify(result, null, 2));
+          console.log(JSON.stringify(result));
         }
         break;
       }
@@ -662,7 +750,7 @@ function main() {
             console.log();
           }
         } else {
-          console.log(JSON.stringify(result, null, 2));
+          console.log(JSON.stringify(result));
         }
         break;
       }
@@ -685,7 +773,7 @@ function main() {
             console.log();
           }
         } else {
-          console.log(JSON.stringify(result, null, 2));
+          console.log(JSON.stringify(result));
         }
         break;
       }
@@ -701,7 +789,7 @@ function main() {
             console.log(`  Workspace: ${result.workspace.name}`);
           }
         } else {
-          console.log(JSON.stringify(result, null, 2));
+          console.log(JSON.stringify(result));
         }
         break;
       }
@@ -730,7 +818,7 @@ function main() {
             console.log();
           }
         } else {
-          console.log(JSON.stringify(result, null, 2));
+          console.log(JSON.stringify(result));
         }
         break;
       }
@@ -753,7 +841,7 @@ function main() {
             console.log(`${field.name}: ${value}`);
           }
         } else {
-          console.log(JSON.stringify(result, null, 2));
+          console.log(JSON.stringify(result));
         }
         break;
       }
@@ -786,7 +874,7 @@ function main() {
             console.log(`  Status: ${STATUS_LABELS[result.status] || result.status}`);
           }
         } else {
-          console.log(JSON.stringify(result, null, 2));
+          console.log(JSON.stringify(result));
         }
         break;
       }
@@ -808,7 +896,7 @@ function main() {
         error: error.message,
         status: error.status,
         data: error.data
-      }, null, 2));
+      }));
     }
     process.exit(1);
   }

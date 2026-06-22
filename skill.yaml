@@ -2,7 +2,7 @@
 # Query and manage PandaDoc documents securely using API key authentication
 
 name: pandadoc
-version: 1.0.0
+version: 1.1.0
 description: Query and manage PandaDoc documents, templates, and e-signatures
 
 author:
@@ -37,7 +37,6 @@ commands:
       - --modified-to <date>
       - --completed-from <date>
       - --completed-to <date>
-      - --json
       - --summary
 
   - name: get
@@ -45,7 +44,6 @@ commands:
     args:
       - <documentId>
     options:
-      - --json
       - --summary
 
   - name: details
@@ -53,7 +51,6 @@ commands:
     args:
       - <documentId>
     options:
-      - --json
       - --summary
 
   - name: download
@@ -73,7 +70,6 @@ commands:
       - -n, --count <number>
       - -p, --page <number>
       - --deleted
-      - --json
       - --summary
 
   - name: folders
@@ -82,13 +78,11 @@ commands:
       - --parent <uuid>
       - -n, --count <number>
       - -p, --page <number>
-      - --json
       - --summary
 
   - name: me
     description: Get current user/member info
     options:
-      - --json
       - --summary
 
   - name: audit
@@ -96,7 +90,6 @@ commands:
     args:
       - <documentId>
     options:
-      - --json
       - --summary
 
   - name: fields
@@ -104,7 +97,6 @@ commands:
     args:
       - <documentId>
     options:
-      - --json
       - --summary
 
   - name: send
@@ -115,7 +107,6 @@ commands:
       - -m, --message <text>
       - --subject <subject>
       - --silent
-      - --json
       - --summary
 
 # Token configuration for secure sandbox access
