@@ -2,7 +2,7 @@
 # Query and manage PandaDoc documents securely using API key authentication
 
 name: pandadoc
-version: 1.1.0
+version: 1.1.1
 description: Query and manage PandaDoc documents, templates, and e-signatures
 
 author:
@@ -16,6 +16,25 @@ repository: cnrai/openpave-pandadoc
 # Execution pattern
 pattern: sandbox
 entrypoint: index.js
+
+usage_notes: |
+  IMPORTANT FOR AI AGENTS:
+  
+  Document Generation Rules:
+  - ALWAYS get user approval before sending a document for signing — this is a legal/financial commitment
+  - Always check fields/tokens on a template before creating documents — know what variables are needed
+  - Use download to save signed documents to tmp/ for record-keeping
+  
+  Closing Workflow:
+  1. When a founder confirms in chat/Discord, create the document from template
+  2. Fill in all required fields/tokens
+  3. Present the document details for final review
+  4. Only send for signing after explicit approval
+  5. Download the signed PDF when complete
+  
+  Audit Trail:
+  - Use audit to verify document history and signing events
+  - Always include audit trail info when reporting on deal status
 
 # Available commands
 commands:
